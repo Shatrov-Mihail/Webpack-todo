@@ -32,7 +32,7 @@ module.exports = merge(common, {
   },
   plugins: [
     new ESLintPlugin({
-      extensions: ['js'],
+      extensions: ['ts', 'js'],
       emitWarning: true,
       overrideConfigFile: path.resolve(__dirname, 'eslint.config.cjs')
     })

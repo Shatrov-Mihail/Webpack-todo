@@ -8,53 +8,64 @@ import rainImageUrl from './assets/images/rainy-bg.jpg';
 import summerImageUrl from './assets/images/summer-bg.jpg';
 import winterImageUrl from './assets/images/winter-bg.jpg';
 
-const SOUNDS = [
+interface SoundConfig {
+  id: string;
+  label: string;
+  audio: string;
+  bg: string;
+}
+
+interface CurrentSound {
+  id: string;
+  audio: HTMLAudioElement;
+  button: HTMLButtonElement;
+}
+
+const SOUNDS: SoundConfig[] = [
   { id: 'rain', label: 'Дождь', audio: rainAudioUrl, bg: rainImageUrl },
   { id: 'summer', label: 'Лето', audio: summerAudioUrl, bg: summerImageUrl },
   { id: 'winter', label: 'Осень', audio: winterAudioUrl, bg: winterImageUrl }
 ];
 
 class SoundManager {
-  constructor() {
-    this.current = null;
-    this.volume = 0.8;
-    this.audioMap = new Map();
-  }
+  private current: CurrentSound | null = null;
+  private volume: number = 0.8;
+  private audioMap: Map<string, HTMLAudioElement> = new Map();
 
-    preload(soundList) {
-    soundList.forEach(s => {
+  preload(soundList: SoundConfig[]): void {
+    soundList.forEach((s) => {
       if (!this.audioMap.has(s.id)) {
-        const a = new Audio(s.audio);
-        a.preload = 'auto';
-        a.loop = true;
-        a.volume = this.volume;
-        this.audioMap.set(s.id, a);
+        const audio = new Audio(s.audio);
+        audio.preload = 'auto';
+        audio.loop = true;
+        audio.volume = this.volume;
+        this.audioMap.set(s.id, audio);
       }
     });
   }
 
-  setVolume(v) {
+  setVolume(v: number): void {
     this.volume = Math.max(0, Math.min(1, v));
     for (const audio of this.audioMap.values()) {
-    audio.volume = this.volume;
+      audio.volume = this.volume;
     }
     if (this.current && this.current.audio) {
       this.current.audio.volume = this.volume;
     }
   }
 
-  async playSound(soundObj, buttonEl) {
+  async playSound(soundObj: SoundConfig, buttonEl: HTMLButtonElement): Promise<void> {
     if (this.current && this.current.id === soundObj.id) {
-      const a = this.current.audio;
-      if (a.paused) {
+      const audio = this.current.audio;
+      if (audio.paused) {
         try {
-          await a.play();
+          await audio.play();
           buttonEl.classList.add('playing');
         } catch (err) {
           console.warn('play() rejected', err);
         }
       } else {
-        a.pause();
+        audio.pause();
         buttonEl.classList.remove('playing');
       }
       return;
@@ -75,14 +86,15 @@ class SoundManager {
     try {
       await audio.play();
       this.current = { id: soundObj.id, audio, button: buttonEl };
-      document.querySelectorAll('.sound-btn').forEach(btn => btn.classList.remove('playing'));
+      document.querySelectorAll<HTMLButtonElement>('.sound-btn').forEach(btn => btn.classList.remove('playing'));
       buttonEl.classList.add('playing');
     } catch (err) {
       console.warn('Audio play failed', err);
     }
 
-        audio.addEventListener('pause', () => {
-      if (this.current && this.current.id === soundObj.id && audio.paused) {
+    const audioRef = audio;
+    audio.addEventListener('pause', () => {
+      if (this.current && this.current.id === soundObj.id && audioRef.paused) {
         if (this.current.button) this.current.button.classList.remove('playing');
       }
     });
@@ -95,7 +107,7 @@ class SoundManager {
     });
   }
 
-  stopCurrent() {
+  stopCurrent(): void {
     if (this.current && this.current.audio) {
       try {
         this.current.audio.pause();
@@ -109,17 +121,22 @@ class SoundManager {
   }
 }
 
-function init() {
+function init(): void {
   const buttonsContainer = document.getElementById('buttonsContainer');
-  const volumeInput = document.getElementById('volume');
+  const volumeInput = document.getElementById('volume') as HTMLInputElement | null;
+
+  if (!buttonsContainer) {
+    console.error('buttonsContainer not found');
+    return;
+  }
 
   const sm = new SoundManager();
-   sm.preload(SOUNDS);
+  sm.preload(SOUNDS);
 
-   const initialVol = volumeInput && Number(volumeInput.value) ? Number(volumeInput.value) / 100 : 0.8;
+  const initialVol = volumeInput && Number(volumeInput.value) ? Number(volumeInput.value) / 100 : 0.8;
   sm.setVolume(initialVol);
 
-    SOUNDS.forEach(s => {
+  SOUNDS.forEach((s) => {
     const btn = document.createElement('button');
     btn.className = 'sound-btn';
     btn.type = 'button';
@@ -129,7 +146,7 @@ function init() {
 
     btn.addEventListener('click', async () => {
       await sm.playSound(s, btn);
-            if (s.bg) {
+      if (s.bg) {
         document.body.style.backgroundImage = `url(${s.bg})`;
       } else {
         document.body.style.backgroundImage = '';
@@ -141,16 +158,20 @@ function init() {
     buttonsContainer.appendChild(btn);
   });
 
+  if (volumeInput) {
     volumeInput.addEventListener('input', (e) => {
-    const v = Number(e.target.value) / 100;
-    sm.setVolume(v);
-  });
+      const target = e.target as HTMLInputElement;
+      const v = Number(target.value) / 100;
+      sm.setVolume(v);
+    });
+  }
 
-    window.addEventListener('visibilitychange', () => {
+  window.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
-    sm.stopCurrent();
+      sm.stopCurrent();
     }
   });
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
